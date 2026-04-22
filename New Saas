@@ -1,0 +1,1592 @@
+📁 Structure finale attendue
+text
+vintflow/
+├── backend/
+│   ├── src/
+│   │   ├── controllers/
+│   │   │   ├── announcementController.js
+│   │   │   └── userController.js
+│   │   ├── middleware/
+│   │   │   ├── authMiddleware.js
+│   │   │   └── errorMiddleware.js
+│   │   ├── routes/
+│   │   │   ├── announcementRoutes.js
+│   │   │   ├── authRoutes.js
+│   │   │   └── userRoutes.js
+│   │   ├── services/
+│   │   │   └── generateService.js
+│   │   └── index.js
+│   ├── .env
+│   └── package.json
+└── frontend/
+    ├── public/
+    │   └── index.html
+    ├── src/
+    │   ├── components/
+    │   │   ├── ui/
+    │   │   │   ├── Button.jsx
+    │   │   │   ├── Input.jsx
+    │   │   │   ├── Select.jsx
+    │   │   │   └── AnimatedContainer.jsx
+    │   │   ├── layout/
+    │   │   │   ├── Navbar.jsx
+    │   │   │   ├── Footer.jsx
+    │   │   │   └── DashboardSidebar.jsx
+    │   │   ├── landing/
+    │   │   │   ├── Hero.jsx
+    │   │   │   ├── ProblemSection.jsx
+    │   │   │   ├── SolutionSection.jsx
+    │   │   │   ├── Features.jsx
+    │   │   │   └── Pricing.jsx
+    │   │   ├── dashboard/
+    │   │   │   ├── GenerateForm.jsx
+    │   │   │   ├── ResultCard.jsx
+    │   │   │   └── HistoryList.jsx
+    │   │   └── auth/
+    │   │       ├── LoginForm.jsx
+    │   │       └── SignupForm.jsx
+    │   ├── hooks/
+    │   │   ├── useAuth.js
+    │   │   └── useAnnouncement.js
+    │   ├── lib/
+    │   │   ├── supabaseClient.js
+    │   │   └── api.js
+    │   ├── pages/
+    │   │   ├── LandingPage.jsx
+    │   │   ├── DashboardPage.jsx
+    │   │   ├── GeneratePage.jsx
+    │   │   ├── HistoryPage.jsx
+    │   │   ├── SettingsPage.jsx
+    │   │   ├── LoginPage.jsx
+    │   │   └── SignupPage.jsx
+    │   ├── App.jsx
+    │   ├── index.js
+    │   └── index.css
+    ├── .env
+    ├── package.json
+    ├── tailwind.config.js
+    └── postcss.config.js
+🔧 Backend
+backend/package.json
+json
+{
+  "name": "vintflow-backend",
+  "version": "1.0.0",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.38.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}
+backend/.env
+text
+PORT=5000
+SUPABASE_URL=https://votre-projet.supabase.co
+SUPABASE_SERVICE_KEY=votre_service_role_key
+backend/src/index.js
+javascript
+require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
+const authRoutes = require('./routes/authRoutes');
+const announcementRoutes = require('./routes/announcementRoutes');
+const userRoutes = require('./routes/userRoutes');
+const errorMiddleware = require('./middleware/errorMiddleware');
+
+const app = express();
+const PORT = process.env.PORT || 5000;
+
+app.use(cors());
+app.use(express.json());
+
+app.use('/api/auth', authRoutes);
+app.use('/api/announcements', announcementRoutes);
+app.use('/api/users', userRoutes);
+
+app.use(errorMiddleware);
+
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
+backend/src/middleware/authMiddleware.js
+javascript
+const { createClient } = require('@supabase/supabase-js');
+
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
+
+const authMiddleware = async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) {
+    return res.status(401).json({ message: 'No token provided' });
+  }
+
+  const token = authHeader.split(' ')[1];
+  const { data: { user }, error } = await supabase.auth.getUser(token);
+
+  if (error || !user) {
+    return res.status(401).json({ message: 'Invalid token' });
+  }
+
+  req.user = user;
+  next();
+};
+
+module.exports = authMiddleware;
+backend/src/middleware/errorMiddleware.js
+javascript
+const errorMiddleware = (err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({ message: 'Une erreur est survenue' });
+};
+
+module.exports = errorMiddleware;
+backend/src/services/generateService.js
+javascript
+const generateTitle = (type, brand, size, condition) => {
+  const conditionText = {
+    neuf: 'Neuf avec étiquette',
+    tres_bon: 'Très bon état',
+    bon: 'Bon état',
+    satisfaisant: 'État satisfaisant',
+  };
+  return `${brand} ${type} ${size} - ${conditionText[condition] || condition}`;
+};
+
+const generateDescription = (type, brand, size, condition) => {
+  return `✨ ${brand} ${type} en ${condition} - Taille ${size}
+  
+📏 Mesures : (à compléter)
+📦 Envoi rapide et soigné
+💬 N'hésitez pas à me contacter pour plus d'infos`;
+};
+
+const generateHashtags = (type, brand, size) => {
+  const base = ['vinted', 'vintage', 'mode', 'secondemain', 'fashion'];
+  const specific = [
+    brand.toLowerCase(),
+    type.toLowerCase(),
+    size.toLowerCase(),
+    `${brand.toLowerCase()}${type.toLowerCase()}`,
+  ];
+  return [...new Set([...specific, ...base])].slice(0, 25);
+};
+
+const calculateSuggestedPrice = (purchasePrice, condition) => {
+  const multipliers = {
+    neuf: 0.8,
+    tres_bon: 0.65,
+    bon: 0.5,
+    satisfaisant: 0.35,
+  };
+  const multiplier = multipliers[condition] || 0.5;
+  return parseFloat((purchasePrice / multiplier).toFixed(2));
+};
+
+const calculateOptimizationScore = (title, description, hashtags) => {
+  let score = 70;
+  if (title.length > 20) score += 10;
+  if (description.length > 100) score += 10;
+  if (hashtags.length >= 15) score += 10;
+  return Math.min(score, 100);
+};
+
+const generateAnnouncement = (data, isPremium = false) => {
+  const { type, brand, size, condition, purchasePrice } = data;
+  const title = generateTitle(type, brand, size, condition);
+  const description = generateDescription(type, brand, size, condition);
+  const hashtags = generateHashtags(type, brand, size);
+  const suggestedPrice = calculateSuggestedPrice(parseFloat(purchasePrice), condition);
+  const estimatedMargin = Math.round((1 - parseFloat(purchasePrice) / suggestedPrice) * 100);
+
+  const result = {
+    title,
+    description,
+    hashtags,
+    suggestedPrice,
+    estimatedMargin,
+  };
+
+  if (isPremium) {
+    result.optimizationScore = calculateOptimizationScore(title, description, hashtags);
+  }
+
+  return result;
+};
+
+module.exports = { generateAnnouncement };
+backend/src/controllers/announcementController.js
+javascript
+const { createClient } = require('@supabase/supabase-js');
+const { generateAnnouncement } = require('../services/generateService');
+
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
+
+const generate = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const { type, brand, size, condition, purchasePrice } = req.body;
+
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+
+    const { count, error: countError } = await supabase
+      .from('announcements')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .gte('created_at', startOfMonth.toISOString());
+
+    if (countError) throw countError;
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('is_premium')
+      .eq('id', userId)
+      .single();
+
+    const isPremium = profile?.is_premium || false;
+    const monthlyLimit = isPremium ? Infinity : 5;
+
+    if (count >= monthlyLimit) {
+      return res.status(403).json({ 
+        message: 'Limite mensuelle atteinte', 
+        code: 'LIMIT_REACHED' 
+      });
+    }
+
+    const generated = generateAnnouncement(req.body, isPremium);
+
+    const { data: saved, error: insertError } = await supabase
+      .from('announcements')
+      .insert({
+        user_id: userId,
+        input_data: req.body,
+        generated_data: generated,
+      })
+      .select()
+      .single();
+
+    if (insertError) throw insertError;
+
+    res.json({ ...generated, id: saved.id });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getHistory = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const { data, error } = await supabase
+      .from('announcements')
+      .select('id, generated_data, created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    const history = data.map(item => ({
+      id: item.id,
+      title: item.generated_data.title,
+      created_at: item.created_at,
+    }));
+
+    res.json(history);
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = { generate, getHistory };
+backend/src/controllers/userController.js
+javascript
+const { createClient } = require('@supabase/supabase-js');
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
+
+const getProfile = async (req, res, next) => {
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', req.user.id)
+      .single();
+
+    if (error) throw error;
+    res.json(data);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const upgradeToPremium = async (req, res, next) => {
+  try {
+    const { error } = await supabase
+      .from('profiles')
+      .update({ is_premium: true })
+      .eq('id', req.user.id);
+
+    if (error) throw error;
+    res.json({ success: true });
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = { getProfile, upgradeToPremium };
+backend/src/routes/announcementRoutes.js
+javascript
+const express = require('express');
+const authMiddleware = require('../middleware/authMiddleware');
+const { generate, getHistory } = require('../controllers/announcementController');
+
+const router = express.Router();
+
+router.use(authMiddleware);
+
+router.post('/generate', generate);
+router.get('/history', getHistory);
+
+module.exports = router;
+backend/src/routes/userRoutes.js
+javascript
+const express = require('express');
+const authMiddleware = require('../middleware/authMiddleware');
+const { getProfile, upgradeToPremium } = require('../controllers/userController');
+
+const router = express.Router();
+
+router.use(authMiddleware);
+
+router.get('/profile', getProfile);
+router.post('/upgrade', upgradeToPremium);
+
+module.exports = router;
+backend/src/routes/authRoutes.js
+javascript
+const express = require('express');
+const router = express.Router();
+// L'authentification est gérée directement par Supabase côté client.
+module.exports = router;
+🎨 Frontend
+frontend/package.json
+json
+{
+  "name": "vintflow-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "dependencies": {
+    "@supabase/supabase-js": "^2.38.0",
+    "axios": "^1.5.0",
+    "framer-motion": "^10.16.4",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-hot-toast": "^2.4.1",
+    "react-intersection-observer": "^9.5.2",
+    "react-router-dom": "^6.16.0",
+    "react-scripts": "5.0.1"
+  },
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject"
+  },
+  "eslintConfig": {
+    "extends": ["react-app"]
+  },
+  "browserslist": {
+    "production": [">0.2%", "not dead", "not op_mini all"],
+    "development": ["last 1 chrome version", "last 1 firefox version", "last 1 safari version"]
+  }
+}
+frontend/.env
+text
+REACT_APP_SUPABASE_URL=https://votre-projet.supabase.co
+REACT_APP_SUPABASE_ANON_KEY=votre_anon_key
+REACT_APP_API_URL=http://localhost:5000/api
+frontend/tailwind.config.js
+javascript
+module.exports = {
+  content: ["./src/**/*.{js,jsx,ts,tsx}"],
+  theme: {
+    extend: {
+      colors: {
+        primary: "#6366F1",
+        secondary: "#0F172A",
+        cta: "#22C55E",
+      },
+      fontFamily: {
+        sans: ["Inter", "sans-serif"],
+      },
+      borderRadius: {
+        'xl': '12px',
+        '2xl': '20px',
+      },
+      animation: {
+        'fade-in': 'fadeIn 0.5s ease-out',
+        'slide-up': 'slideUp 0.4s ease-out',
+        'scale-in': 'scaleIn 0.3s ease-out',
+      },
+      keyframes: {
+        fadeIn: {
+          '0%': { opacity: '0' },
+          '100%': { opacity: '1' },
+        },
+        slideUp: {
+          '0%': { opacity: '0', transform: 'translateY(20px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+        scaleIn: {
+          '0%': { opacity: '0', transform: 'scale(0.95)' },
+          '100%': { opacity: '1', transform: 'scale(1)' },
+        },
+      },
+    },
+  },
+  plugins: [],
+};
+frontend/postcss.config.js
+javascript
+module.exports = {
+  plugins: {
+    tailwindcss: {},
+    autoprefixer: {},
+  },
+};
+frontend/src/index.css
+css
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-[#F8FAFC] text-[#0F172A] font-sans antialiased;
+  }
+}
+
+@layer utilities {
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-primary to-cta;
+  }
+  .shadow-soft {
+    box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.05);
+  }
+  .shadow-card {
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05), 0 20px 40px -10px rgba(0,0,0,0.05);
+  }
+}
+
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+  100% { transform: translateY(0px); }
+}
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.2); }
+  50% { box-shadow: 0 0 20px 5px rgba(99, 102, 241, 0.1); }
+}
+.animate-float { animation: float 6s ease-in-out infinite; }
+.animate-pulse-glow { animation: pulse-glow 3s ease-in-out infinite; }
+frontend/src/index.js
+jsx
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import './index.css';
+import App from './App';
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);
+frontend/src/App.jsx
+jsx
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
+import { useAuth } from './hooks/useAuth';
+import LandingPage from './pages/LandingPage';
+import LoginPage from './pages/LoginPage';
+import SignupPage from './pages/SignupPage';
+import DashboardPage from './pages/DashboardPage';
+
+function PrivateRoute({ children }) {
+  const { user, loading } = useAuth();
+  if (loading) return (
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+    </div>
+  );
+  return user ? children : <Navigate to="/login" />;
+}
+
+function App() {
+  return (
+    <BrowserRouter>
+      <Toaster position="top-center" toastOptions={{
+        duration: 3000,
+        style: { background: '#0F172A', color: '#fff', borderRadius: '12px' },
+        success: { iconTheme: { primary: '#22C55E', secondary: '#fff' } },
+      }} />
+      <Routes>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/signup" element={<SignupPage />} />
+        <Route path="/dashboard/*" element={<PrivateRoute><DashboardPage /></PrivateRoute>} />
+      </Routes>
+    </BrowserRouter>
+  );
+}
+
+export default App;
+frontend/src/lib/supabaseClient.js
+javascript
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = process.env.REACT_APP_SUPABASE_URL;
+const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY;
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+frontend/src/lib/api.js
+javascript
+import axios from 'axios';
+
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+
+const api = axios.create({ baseURL: API_URL, headers: { 'Content-Type': 'application/json' } });
+
+api.interceptors.request.use((config) => {
+  const sessionStr = localStorage.getItem('supabase.auth.token');
+  if (sessionStr) {
+    const session = JSON.parse(sessionStr);
+    config.headers.Authorization = `Bearer ${session.currentSession?.access_token}`;
+  }
+  return config;
+});
+
+export const generateAnnouncement = (data) => api.post('/announcements/generate', data);
+export const getHistory = () => api.get('/announcements/history');
+export const getUserProfile = () => api.get('/users/profile');
+export const upgradeToPremium = () => api.post('/users/upgrade');
+
+export default api;
+frontend/src/hooks/useAuth.js
+javascript
+import { useEffect, useState } from 'react';
+import { supabase } from '../lib/supabaseClient';
+
+export function useAuth() {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const session = supabase.auth.session();
+    setUser(session?.user ?? null);
+    setLoading(false);
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => listener?.unsubscribe();
+  }, []);
+
+  const signIn = async (email, password) => {
+    const { user, error } = await supabase.auth.signIn({ email, password });
+    if (error) throw error;
+    return user;
+  };
+
+  const signUp = async (email, password) => {
+    const { user, error } = await supabase.auth.signUp({ email, password });
+    if (error) throw error;
+    return user;
+  };
+
+  const signOut = async () => {
+    await supabase.auth.signOut();
+  };
+
+  return { user, loading, signIn, signUp, signOut };
+}
+frontend/src/hooks/useAnnouncement.js
+javascript
+import { useState } from 'react';
+import { generateAnnouncement } from '../lib/api';
+
+export function useAnnouncement() {
+  const [result, setResult] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const generate = async (formData) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await generateAnnouncement(formData);
+      setResult(response.data);
+      return response.data;
+    } catch (err) {
+      setError(err.response?.data?.message || 'Erreur lors de la génération');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return { result, loading, error, generate };
+}
+frontend/src/components/ui/Button.jsx
+jsx
+import { motion } from 'framer-motion';
+
+const variants = {
+  primary: 'bg-primary text-white hover:bg-primary/90 shadow-md hover:shadow-lg',
+  cta: 'bg-cta text-white hover:bg-cta/90 shadow-md hover:shadow-lg',
+  secondary: 'bg-gray-200 text-secondary hover:bg-gray-300',
+  outline: 'border border-primary text-primary hover:bg-primary/10',
+};
+
+const Button = ({ children, variant = 'primary', className = '', loading, ...props }) => {
+  return (
+    <motion.button
+      whileHover={{ scale: 1.02 }}
+      whileTap={{ scale: 0.98 }}
+      transition={{ type: "spring", stiffness: 400, damping: 17 }}
+      className={`relative px-6 py-3 rounded-xl font-medium transition-all duration-200 ${variants[variant]} ${className} ${loading ? 'opacity-80 cursor-not-allowed' : ''}`}
+      disabled={loading}
+      {...props}
+    >
+      {loading && (
+        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+      )}
+      {children}
+    </motion.button>
+  );
+};
+
+export default Button;
+frontend/src/components/ui/Input.jsx
+jsx
+const Input = ({ label, error, className = '', ...props }) => {
+  return (
+    <div className="w-full">
+      {label && <label className="block text-sm font-medium text-secondary mb-1">{label}</label>}
+      <input className={`w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 ${className}`} {...props} />
+      {error && <p className="text-red-500 text-sm mt-1">{error}</p>}
+    </div>
+  );
+};
+export default Input;
+frontend/src/components/ui/Select.jsx
+jsx
+const Select = ({ label, options, error, className = '', ...props }) => {
+  return (
+    <div className="w-full">
+      {label && <label className="block text-sm font-medium text-secondary mb-1">{label}</label>}
+      <select className={`w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 bg-white ${className}`} {...props}>
+        <option value="">Sélectionner...</option>
+        {options.map((opt) => (
+          <option key={opt.value} value={opt.value}>{opt.label}</option>
+        ))}
+      </select>
+      {error && <p className="text-red-500 text-sm mt-1">{error}</p>}
+    </div>
+  );
+};
+export default Select;
+frontend/src/components/ui/AnimatedContainer.jsx
+jsx
+import { motion } from 'framer-motion';
+import { useInView } from 'react-intersection-observer';
+
+export const FadeIn = ({ children, delay = 0, className = '' }) => {
+  const [ref, inView] = useInView({ triggerOnce: true, threshold: 0.1 });
+  return (
+    <motion.div ref={ref} initial={{ opacity: 0, y: 20 }} animate={inView ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.5, delay }} className={className}>
+      {children}
+    </motion.div>
+  );
+};
+frontend/src/components/layout/Navbar.jsx
+jsx
+import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import Button from '../ui/Button';
+import { useAuth } from '../../hooks/useAuth';
+
+const Navbar = () => {
+  const { user, signOut } = useAuth();
+  const [scrolled, setScrolled] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => setScrolled(window.scrollY > 20);
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  return (
+    <motion.nav
+      initial={{ y: -100 }}
+      animate={{ y: 0 }}
+      transition={{ type: "spring", stiffness: 100 }}
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+        scrolled ? 'bg-white/80 backdrop-blur-md shadow-soft py-2' : 'bg-transparent py-4'
+      }`}
+    >
+      <div className="max-w-7xl mx-auto px-6 flex justify-between items-center">
+        <Link to="/" className="text-2xl font-bold text-primary">
+          VintFlow
+        </Link>
+        
+        <div className="hidden md:flex items-center gap-4">
+          {user ? (
+            <>
+              <Link to="/dashboard" className="text-secondary hover:text-primary transition-colors">
+                Dashboard
+              </Link>
+              <Button variant="outline" onClick={signOut}>Déconnexion</Button>
+            </>
+          ) : (
+            <>
+              <Link to="/login" className="text-secondary hover:text-primary transition-colors">
+                Login
+              </Link>
+              <Link to="/signup">
+                <Button variant="primary">Commencer gratuitement</Button>
+              </Link>
+            </>
+          )}
+        </div>
+        
+        <button 
+          className="md:hidden p-2"
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+        >
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            {mobileMenuOpen ? (
+              <path d="M6 18L18 6M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+            ) : (
+              <path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+            )}
+          </svg>
+        </button>
+      </div>
+      
+      <AnimatePresence>
+        {mobileMenuOpen && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="md:hidden bg-white shadow-lg mt-2 mx-4 rounded-2xl overflow-hidden"
+          >
+            <div className="flex flex-col p-4 space-y-3">
+              {user ? (
+                <>
+                  <Link to="/dashboard" className="py-2" onClick={() => setMobileMenuOpen(false)}>Dashboard</Link>
+                  <button onClick={() => { signOut(); setMobileMenuOpen(false); }} className="text-left py-2 text-red-500">Déconnexion</button>
+                </>
+              ) : (
+                <>
+                  <Link to="/login" className="py-2" onClick={() => setMobileMenuOpen(false)}>Login</Link>
+                  <Link to="/signup" onClick={() => setMobileMenuOpen(false)}>
+                    <Button variant="primary" className="w-full">Commencer gratuitement</Button>
+                  </Link>
+                </>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.nav>
+  );
+};
+
+export default Navbar;
+frontend/src/components/layout/Footer.jsx
+jsx
+const Footer = () => {
+  return (
+    <footer className="bg-white py-8 mt-20">
+      <div className="max-w-7xl mx-auto px-6 text-center text-gray-500 text-sm">
+        © 2025 VintFlow. Tous droits réservés.
+      </div>
+    </footer>
+  );
+};
+
+export default Footer;
+frontend/src/components/layout/DashboardSidebar.jsx
+jsx
+import { NavLink } from 'react-router-dom';
+import { useAuth } from '../../hooks/useAuth';
+
+const navItems = [
+  { name: 'Dashboard', path: '/dashboard' },
+  { name: 'Générer annonce', path: '/dashboard/generate' },
+  { name: 'Historique', path: '/dashboard/history' },
+  { name: 'Settings', path: '/dashboard/settings' },
+];
+
+const DashboardSidebar = () => {
+  const { signOut } = useAuth();
+
+  return (
+    <aside className="w-64 bg-white shadow-sm p-4 flex flex-col min-h-screen">
+      <div className="text-2xl font-bold text-primary mb-8">VintFlow</div>
+      <nav className="flex-1">
+        <ul className="space-y-2">
+          {navItems.map((item) => (
+            <li key={item.path}>
+              <NavLink
+                to={item.path}
+                className={({ isActive }) =>
+                  `block px-4 py-2 rounded-xl transition-colors ${
+                    isActive ? 'bg-primary/10 text-primary font-medium' : 'text-secondary hover:bg-gray-100'
+                  }`
+                }
+              >
+                {item.name}
+              </NavLink>
+            </li>
+          ))}
+        </ul>
+      </nav>
+      <button
+        onClick={signOut}
+        className="mt-auto text-left px-4 py-2 text-gray-600 hover:text-primary"
+      >
+        Déconnexion
+      </button>
+    </aside>
+  );
+};
+
+export default DashboardSidebar;
+frontend/src/components/landing/Hero.jsx
+jsx
+import { motion } from 'framer-motion';
+import Button from '../ui/Button';
+import { Link } from 'react-router-dom';
+
+const Hero = () => {
+  return (
+    <section className="pt-32 pb-20 px-6 relative overflow-hidden">
+      <div className="absolute inset-0 -z-10">
+        <div className="absolute top-20 left-10 w-72 h-72 bg-primary/5 rounded-full blur-3xl animate-pulse-glow" />
+        <div className="absolute bottom-20 right-10 w-96 h-96 bg-cta/5 rounded-full blur-3xl animate-pulse-glow" style={{ animationDelay: '1s' }} />
+      </div>
+      
+      <div className="max-w-5xl mx-auto text-center">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+        >
+          <span className="inline-block px-4 py-1 rounded-full bg-primary/10 text-primary text-sm font-medium mb-6">
+            🚀 Boostez vos ventes Vinted
+          </span>
+        </motion.div>
+        
+        <motion.h1
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.1 }}
+          className="text-5xl md:text-7xl font-bold text-secondary mb-6 leading-tight"
+        >
+          Arrête de perdre <br/>
+          <span className="text-gradient">des ventes sur Vinted.</span>
+        </motion.h1>
+        
+        <motion.p
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.2 }}
+          className="text-xl text-gray-600 mb-10 max-w-2xl mx-auto"
+        >
+          Génère des annonces optimisées en 10 secondes et augmente ta visibilité.
+        </motion.p>
+        
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.3 }}
+          className="flex flex-col sm:flex-row gap-4 justify-center"
+        >
+          <Link to="/signup">
+            <Button variant="cta" className="text-lg px-8 py-4 shadow-lg hover:shadow-xl">
+              Tester gratuitement
+            </Button>
+          </Link>
+          <a href="#features">
+            <Button variant="outline" className="text-lg px-8 py-4">
+              Voir les fonctionnalités
+            </Button>
+          </a>
+        </motion.div>
+      </div>
+    </section>
+  );
+};
+
+export default Hero;
+frontend/src/components/landing/ProblemSection.jsx
+jsx
+import { FadeIn } from '../ui/AnimatedContainer';
+
+const ProblemSection = () => {
+  return (
+    <section className="py-16 px-6 bg-white">
+      <FadeIn>
+        <div className="max-w-4xl mx-auto text-center">
+          <h2 className="text-3xl md:text-4xl font-bold text-secondary mb-4">
+            Tu passes 10 minutes par annonce… pour zéro vente ?
+          </h2>
+          <p className="text-lg text-gray-600">
+            Créer des titres accrocheurs, des descriptions complètes et trouver les bons hashtags prend un temps fou. 
+            Sans optimisation, tes articles restent invisibles.
+          </p>
+        </div>
+      </FadeIn>
+    </section>
+  );
+};
+
+export default ProblemSection;
+frontend/src/components/landing/SolutionSection.jsx
+jsx
+import { FadeIn } from '../ui/AnimatedContainer';
+
+const SolutionSection = () => {
+  return (
+    <section className="py-16 px-6 bg-[#F8FAFC]">
+      <FadeIn>
+        <div className="max-w-4xl mx-auto text-center">
+          <h2 className="text-3xl md:text-4xl font-bold text-secondary mb-4">
+            VintFlow automatise tout.
+          </h2>
+          <p className="text-lg text-gray-600">
+            En quelques clics, obtiens un titre optimisé SEO, une description persuasive, 
+            les hashtags les plus pertinents et un prix conseillé pour vendre plus vite.
+          </p>
+        </div>
+      </FadeIn>
+    </section>
+  );
+};
+
+export default SolutionSection;
+frontend/src/components/landing/Features.jsx
+jsx
+import { motion } from 'framer-motion';
+import { FadeIn } from '../ui/AnimatedContainer';
+
+const features = [
+  {
+    icon: '⚡',
+    title: 'Génération instantanée',
+    description: 'Remplis quelques champs et obtiens une annonce complète en moins de 10 secondes.',
+  },
+  {
+    icon: '🔍',
+    title: 'Optimisation SEO Vinted',
+    description: 'Titres et descriptions conçus pour apparaître en tête des recherches.',
+  },
+  {
+    icon: '💰',
+    title: 'Prix intelligent',
+    description: 'Suggestion de prix basée sur la marge souhaitée et les tendances du marché.',
+  },
+];
+
+const Features = () => {
+  return (
+    <section id="features" className="py-24 px-6 max-w-7xl mx-auto">
+      <FadeIn>
+        <div className="text-center mb-16">
+          <span className="text-primary font-semibold tracking-wide">FONCTIONNALITÉS</span>
+          <h2 className="text-4xl font-bold text-secondary mt-2">Pourquoi VintFlow ?</h2>
+        </div>
+      </FadeIn>
+      
+      <div className="grid md:grid-cols-3 gap-8">
+        {features.map((feature, index) => (
+          <FadeIn key={index} delay={index * 0.1}>
+            <motion.div
+              whileHover={{ y: -8 }}
+              transition={{ type: "spring", stiffness: 300 }}
+              className="bg-white p-8 rounded-2xl shadow-card border border-gray-100 hover:border-primary/20 transition-colors"
+            >
+              <div className="text-4xl mb-4">{feature.icon}</div>
+              <h3 className="text-xl font-bold mb-3">{feature.title}</h3>
+              <p className="text-gray-600">{feature.description}</p>
+            </motion.div>
+          </FadeIn>
+        ))}
+      </div>
+    </section>
+  );
+};
+
+export default Features;
+frontend/src/components/landing/Pricing.jsx
+jsx
+import { motion } from 'framer-motion';
+import Button from '../ui/Button';
+import { Link } from 'react-router-dom';
+import { FadeIn } from '../ui/AnimatedContainer';
+
+const Pricing = () => {
+  return (
+    <section className="py-24 px-6 bg-white">
+      <div className="max-w-6xl mx-auto">
+        <FadeIn>
+          <div className="text-center mb-16">
+            <span className="text-primary font-semibold tracking-wide">TARIFS</span>
+            <h2 className="text-4xl font-bold text-secondary mt-2">Des offres simples</h2>
+          </div>
+        </FadeIn>
+        
+        <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+          <FadeIn delay={0.1}>
+            <motion.div whileHover={{ y: -8 }} className="border border-gray-200 rounded-2xl p-8 bg-white shadow-card">
+              <h3 className="text-2xl font-bold mb-2">Gratuit</h3>
+              <p className="text-gray-600 mb-6">Pour tester la puissance de VintFlow</p>
+              <div className="text-4xl font-bold mb-6">0€ <span className="text-lg font-normal text-gray-500">/mois</span></div>
+              <ul className="space-y-4 mb-8">
+                <li className="flex items-center gap-3"><span className="text-cta">✓</span> 5 annonces / mois</li>
+                <li className="flex items-center gap-3"><span className="text-cta">✓</span> Génération complète</li>
+                <li className="flex items-center gap-3 text-gray-400"><span>✗</span> Pas d'historique</li>
+              </ul>
+              <Link to="/signup"><Button variant="outline" className="w-full">Commencer</Button></Link>
+            </motion.div>
+          </FadeIn>
+          
+          <FadeIn delay={0.2}>
+            <motion.div whileHover={{ y: -8 }} className="border-2 border-primary rounded-2xl p-8 relative bg-white shadow-lg">
+              <div className="absolute -top-3 right-4 bg-cta text-white px-3 py-1 rounded-full text-sm font-medium">Recommandé</div>
+              <h3 className="text-2xl font-bold mb-2">Premium</h3>
+              <p className="text-gray-600 mb-6">Pour les revendeurs sérieux</p>
+              <div className="text-4xl font-bold mb-6">9€ <span className="text-lg font-normal text-gray-500">/mois</span></div>
+              <ul className="space-y-4 mb-8">
+                <li className="flex items-center gap-3"><span className="text-cta">✓</span> Annonces illimitées</li>
+                <li className="flex items-center gap-3"><span className="text-cta">✓</span> Historique complet</li>
+                <li className="flex items-center gap-3"><span className="text-cta">✓</span> Score d'optimisation avancé</li>
+              </ul>
+              <Link to="/signup"><Button variant="cta" className="w-full">Passer premium</Button></Link>
+            </motion.div>
+          </FadeIn>
+        </div>
+      </div>
+    </section>
+  );
+};
+
+export default Pricing;
+frontend/src/components/dashboard/GenerateForm.jsx
+jsx
+import { useState } from 'react';
+import { motion } from 'framer-motion';
+import Input from '../ui/Input';
+import Select from '../ui/Select';
+import Button from '../ui/Button';
+import toast from 'react-hot-toast';
+
+const itemTypes = [
+  { value: 'hoodie', label: 'Hoodie' },
+  { value: 'veste', label: 'Veste' },
+  { value: 'sneakers', label: 'Sneakers' },
+  { value: 'jeans', label: 'Jeans' },
+  { value: 't-shirt', label: 'T-shirt' },
+  { value: 'robe', label: 'Robe' },
+  { value: 'sac', label: 'Sac' },
+];
+
+const conditions = [
+  { value: 'neuf', label: 'Neuf avec étiquette' },
+  { value: 'tres_bon', label: 'Très bon état' },
+  { value: 'bon', label: 'Bon état' },
+  { value: 'satisfaisant', label: 'État satisfaisant' },
+];
+
+const GenerateForm = ({ onSubmit, loading }) => {
+  const [formData, setFormData] = useState({
+    type: '',
+    brand: '',
+    size: '',
+    condition: '',
+    purchasePrice: '',
+  });
+  const [errors, setErrors] = useState({});
+
+  const validate = () => {
+    const newErrors = {};
+    if (!formData.type) newErrors.type = 'Requis';
+    if (!formData.brand) newErrors.brand = 'Requis';
+    if (!formData.size) newErrors.size = 'Requis';
+    if (!formData.condition) newErrors.condition = 'Requis';
+    if (!formData.purchasePrice || formData.purchasePrice <= 0) newErrors.purchasePrice = 'Prix valide requis';
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleChange = (e) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+    if (errors[e.target.name]) setErrors({ ...errors, [e.target.name]: null });
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!validate()) {
+      toast.error('Veuillez remplir tous les champs correctement');
+      return;
+    }
+    onSubmit(formData);
+  };
+
+  return (
+    <motion.form
+      initial={{ opacity: 0, x: -20 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ duration: 0.4 }}
+      onSubmit={handleSubmit}
+      className="bg-white p-8 rounded-2xl shadow-card"
+    >
+      <h2 className="text-2xl font-bold mb-6">Créer une annonce</h2>
+      <div className="space-y-5">
+        <Select label="Type d'article" name="type" options={itemTypes} value={formData.type} onChange={handleChange} error={errors.type} required />
+        <Input label="Marque" name="brand" placeholder="ex: Nike, Zara..." value={formData.brand} onChange={handleChange} error={errors.brand} required />
+        <Input label="Taille" name="size" placeholder="ex: M, 42, 38..." value={formData.size} onChange={handleChange} error={errors.size} required />
+        <Select label="État" name="condition" options={conditions} value={formData.condition} onChange={handleChange} error={errors.condition} required />
+        <Input label="Prix d'achat (€)" name="purchasePrice" type="number" step="0.01" min="0" placeholder="ex: 25.50" value={formData.purchasePrice} onChange={handleChange} error={errors.purchasePrice} required />
+        <Button type="submit" variant="cta" className="w-full" loading={loading}>
+          {loading ? 'Génération...' : 'Générer mon annonce'}
+        </Button>
+      </div>
+    </motion.form>
+  );
+};
+
+export default GenerateForm;
+frontend/src/components/dashboard/ResultCard.jsx
+jsx
+import { useState } from 'react';
+import { motion } from 'framer-motion';
+import toast from 'react-hot-toast';
+
+const ResultCard = ({ result }) => {
+  const [copiedField, setCopiedField] = useState(null);
+
+  const copyToClipboard = (text, field) => {
+    navigator.clipboard.writeText(text);
+    setCopiedField(field);
+    toast.success('Copié !');
+    setTimeout(() => setCopiedField(null), 2000);
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: 20 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ duration: 0.4 }}
+      className="bg-white p-8 rounded-2xl shadow-card"
+    >
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-2xl font-bold">Ton annonce est prête</h2>
+        {result.optimizationScore && (
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium">Optimisation</span>
+            <span className={`text-lg font-bold ${result.optimizationScore >= 80 ? 'text-cta' : 'text-yellow-500'}`}>
+              {result.optimizationScore}/100
+            </span>
+          </div>
+        )}
+      </div>
+      
+      {result.optimizationScore && (
+        <div className="w-full bg-gray-200 rounded-full h-2 mb-6">
+          <motion.div
+            initial={{ width: 0 }}
+            animate={{ width: `${result.optimizationScore}%` }}
+            transition={{ duration: 1 }}
+            className={`h-2 rounded-full ${result.optimizationScore >= 80 ? 'bg-cta' : 'bg-yellow-500'}`}
+          />
+        </div>
+      )}
+      
+      <div className="mb-6">
+        <div className="flex justify-between mb-2"><h3 className="font-medium">Titre</h3><button onClick={() => copyToClipboard(result.title, 'title')} className="text-primary text-sm">{copiedField==='title'?'Copié !':'Copier'}</button></div>
+        <div className="p-4 bg-gray-50 rounded-xl border">{result.title}</div>
+      </div>
+
+      <div className="mb-6">
+        <div className="flex justify-between mb-2"><h3 className="font-medium">Description</h3><button onClick={() => copyToClipboard(result.description, 'desc')} className="text-primary text-sm">{copiedField==='desc'?'Copié !':'Copier'}</button></div>
+        <div className="p-4 bg-gray-50 rounded-xl border whitespace-pre-line">{result.description}</div>
+      </div>
+
+      <div className="mb-6">
+        <div className="flex justify-between mb-2"><h3 className="font-medium">Hashtags</h3><button onClick={() => copyToClipboard(result.hashtags.join(' '), 'tags')} className="text-primary text-sm">{copiedField==='tags'?'Copié !':'Copier tous'}</button></div>
+        <div className="p-4 bg-gray-50 rounded-xl border flex flex-wrap gap-2">
+          {result.hashtags.map((tag, i) => (
+            <motion.span key={i} initial={{ opacity:0, scale:0.8 }} animate={{ opacity:1, scale:1 }} transition={{ delay: i*0.02 }} className="bg-primary/10 text-primary px-3 py-1 rounded-full text-sm cursor-pointer" onClick={() => copyToClipboard(tag, `tag-${i}`)}>#{tag}</motion.span>
+          ))}
+        </div>
+      </div>
+
+      <div className="border-t pt-6">
+        <div className="flex items-baseline justify-between">
+          <div><h3 className="font-medium mb-1">Prix conseillé</h3><p className="text-3xl font-bold text-cta">{result.suggestedPrice.toFixed(2)} €</p></div>
+          <div className="text-right"><p className="text-sm text-gray-500">Marge estimée</p><p className="text-xl font-semibold">+{result.estimatedMargin}%</p></div>
+        </div>
+      </div>
+    </motion.div>
+  );
+};
+
+export default ResultCard;
+frontend/src/components/dashboard/HistoryList.jsx
+jsx
+import { Link } from 'react-router-dom';
+
+const HistoryList = ({ history }) => {
+  if (!history.length) return <p className="text-gray-500">Aucune annonce générée.</p>;
+  return (
+    <div className="space-y-4">
+      {history.map((item) => (
+        <div key={item.id} className="bg-white p-4 rounded-xl shadow-sm flex justify-between items-center">
+          <div><p className="font-medium">{item.title}</p><p className="text-sm text-gray-500">{new Date(item.created_at).toLocaleDateString()}</p></div>
+          <Link to={`/dashboard/generate?duplicate=${item.id}`} className="text-primary hover:underline text-sm">Dupliquer</Link>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+export default HistoryList;
+frontend/src/pages/LandingPage.jsx
+jsx
+import Navbar from '../components/layout/Navbar';
+import Hero from '../components/landing/Hero';
+import ProblemSection from '../components/landing/ProblemSection';
+import SolutionSection from '../components/landing/SolutionSection';
+import Features from '../components/landing/Features';
+import Pricing from '../components/landing/Pricing';
+import Footer from '../components/layout/Footer';
+
+const LandingPage = () => (
+  <div className="min-h-screen flex flex-col">
+    <Navbar />
+    <main className="flex-grow">
+      <Hero />
+      <ProblemSection />
+      <SolutionSection />
+      <Features />
+      <Pricing />
+    </main>
+    <Footer />
+  </div>
+);
+
+export default LandingPage;
+frontend/src/pages/LoginPage.jsx
+jsx
+import { useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import { useAuth } from '../hooks/useAuth';
+import Input from '../components/ui/Input';
+import Button from '../components/ui/Button';
+import toast from 'react-hot-toast';
+
+const LoginPage = () => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const { signIn } = useAuth();
+  const navigate = useNavigate();
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      await signIn(email, password);
+      toast.success('Connexion réussie !');
+      navigate('/dashboard');
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center p-4">
+      <div className="bg-white p-8 rounded-2xl shadow-card max-w-md w-full">
+        <h1 className="text-2xl font-bold mb-6">Connexion</h1>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <Input label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+          <Input label="Mot de passe" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+          <Button type="submit" className="w-full" loading={loading}>Se connecter</Button>
+        </form>
+        <p className="mt-4 text-center text-sm">
+          Pas de compte ? <Link to="/signup" className="text-primary hover:underline">S'inscrire</Link>
+        </p>
+      </div>
+    </div>
+  );
+};
+
+export default LoginPage;
+frontend/src/pages/SignupPage.jsx
+jsx
+import { useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import { useAuth } from '../hooks/useAuth';
+import Input from '../components/ui/Input';
+import Button from '../components/ui/Button';
+import toast from 'react-hot-toast';
+
+const SignupPage = () => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const { signUp } = useAuth();
+  const navigate = useNavigate();
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      await signUp(email, password);
+      toast.success('Inscription réussie ! Vérifiez vos emails.');
+      navigate('/login');
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center p-4">
+      <div className="bg-white p-8 rounded-2xl shadow-card max-w-md w-full">
+        <h1 className="text-2xl font-bold mb-6">Inscription</h1>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <Input label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+          <Input label="Mot de passe" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+          <Button type="submit" className="w-full" loading={loading}>S'inscrire</Button>
+        </form>
+        <p className="mt-4 text-center text-sm">
+          Déjà un compte ? <Link to="/login" className="text-primary hover:underline">Se connecter</Link>
+        </p>
+      </div>
+    </div>
+  );
+};
+
+export default SignupPage;
+frontend/src/pages/DashboardPage.jsx
+jsx
+import { Routes, Route, useLocation } from 'react-router-dom';
+import { AnimatePresence, motion } from 'framer-motion';
+import DashboardSidebar from '../components/layout/DashboardSidebar';
+import GeneratePage from './GeneratePage';
+import HistoryPage from './HistoryPage';
+import SettingsPage from './SettingsPage';
+
+const pageVariants = {
+  initial: { opacity: 0, x: 20 },
+  animate: { opacity: 1, x: 0 },
+  exit: { opacity: 0, x: -20 }
+};
+
+const DashboardPage = () => {
+  const location = useLocation();
+  return (
+    <div className="flex min-h-screen bg-[#F8FAFC]">
+      <DashboardSidebar />
+      <div className="flex-1 p-6 md:p-8 overflow-auto">
+        <AnimatePresence mode="wait">
+          <Routes location={location} key={location.pathname}>
+            <Route path="/" element={<motion.div variants={pageVariants} initial="initial" animate="animate" exit="exit"><GeneratePage /></motion.div>} />
+            <Route path="/generate" element={<motion.div variants={pageVariants} initial="initial" animate="animate" exit="exit"><GeneratePage /></motion.div>} />
+            <Route path="/history" element={<motion.div variants={pageVariants} initial="initial" animate="animate" exit="exit"><HistoryPage /></motion.div>} />
+            <Route path="/settings" element={<motion.div variants={pageVariants} initial="initial" animate="animate" exit="exit"><SettingsPage /></motion.div>} />
+          </Routes>
+        </AnimatePresence>
+      </div>
+    </div>
+  );
+};
+
+export default DashboardPage;
+frontend/src/pages/GeneratePage.jsx
+jsx
+import { useState } from 'react';
+import GenerateForm from '../components/dashboard/GenerateForm';
+import ResultCard from '../components/dashboard/ResultCard';
+import { useAnnouncement } from '../hooks/useAnnouncement';
+
+const GeneratePage = () => {
+  const { result, loading, generate } = useAnnouncement();
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+
+  const handleSubmit = async (formData) => {
+    try {
+      await generate(formData);
+    } catch (err) {
+      if (err.response?.status === 403 && err.response?.data?.code === 'LIMIT_REACHED') {
+        setShowUpgradeModal(true);
+      }
+    }
+  };
+
+  return (
+    <div className="max-w-5xl mx-auto">
+      <h1 className="text-3xl font-bold text-secondary mb-6">Générer une annonce</h1>
+      <div className="grid lg:grid-cols-2 gap-8">
+        <GenerateForm onSubmit={handleSubmit} loading={loading} />
+        {result && <ResultCard result={result} />}
+      </div>
+      {showUpgradeModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl p-8 max-w-md">
+            <h3 className="text-2xl font-bold mb-2">Limite atteinte</h3>
+            <p className="mb-6">Tu as atteint ta limite de 5 annonces ce mois-ci. Passe premium pour des annonces illimitées.</p>
+            <div className="flex gap-4">
+              <button onClick={() => setShowUpgradeModal(false)} className="px-4 py-2 text-gray-600">Plus tard</button>
+              <button className="bg-cta text-white px-6 py-2 rounded-xl">Passer premium (9€/mois)</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default GeneratePage;
+frontend/src/pages/HistoryPage.jsx
+jsx
+import { useEffect, useState } from 'react';
+import { getHistory } from '../lib/api';
+import HistoryList from '../components/dashboard/HistoryList';
+
+const HistoryPage = () => {
+  const [history, setHistory] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getHistory().then(res => setHistory(res.data)).finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <div className="text-center py-10">Chargement...</div>;
+
+  return (
+    <div className="max-w-4xl mx-auto">
+      <h1 className="text-3xl font-bold text-secondary mb-6">Historique des annonces</h1>
+      <HistoryList history={history} />
+    </div>
+  );
+};
+
+export default HistoryPage;
+frontend/src/pages/SettingsPage.jsx
+jsx
+import { useEffect, useState } from 'react';
+import { getUserProfile, upgradeToPremium } from '../lib/api';
+import Button from '../components/ui/Button';
+import toast from 'react-hot-toast';
+
+const SettingsPage = () => {
+  const [profile, setProfile] = useState(null);
+  const [upgrading, setUpgrading] = useState(false);
+
+  useEffect(() => {
+    getUserProfile().then(res => setProfile(res.data));
+  }, []);
+
+  const handleUpgrade = async () => {
+    setUpgrading(true);
+    try {
+      await upgradeToPremium();
+      const updated = await getUserProfile();
+      setProfile(updated.data);
+      toast.success('Passé premium avec succès !');
+    } catch (err) {
+      toast.error('Erreur lors du passage premium');
+    } finally {
+      setUpgrading(false);
+    }
+  };
+
+  return (
+    <div className="max-w-2xl mx-auto">
+      <h1 className="text-3xl font-bold text-secondary mb-6">Paramètres</h1>
+      <div className="bg-white p-6 rounded-2xl shadow-card">
+        <p className="mb-4"><strong>Email :</strong> {profile?.email}</p>
+        <p className="mb-6"><strong>Statut :</strong> {profile?.is_premium ? 'Premium' : 'Gratuit'}</p>
+        {!profile?.is_premium && (
+          <Button onClick={handleUpgrade} loading={upgrading}>Passer premium (9€/mois)</Button>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default SettingsPage;
+🗄️ Script SQL Supabase
+sql
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+CREATE TABLE profiles (
+  id UUID PRIMARY KEY REFERENCES auth.users ON DELETE CASCADE,
+  email TEXT,
+  is_premium BOOLEAN DEFAULT false,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO public.profiles (id, email) VALUES (NEW.id, NEW.email);
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created AFTER INSERT ON auth.users FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+CREATE TABLE announcements (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users NOT NULL,
+  input_data JSONB NOT NULL,
+  generated_data JSONB NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE announcements ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view own profile" ON profiles FOR SELECT USING (auth.uid() = id);
+CREATE POLICY "Users can update own profile" ON profiles FOR UPDATE USING (auth.uid() = id);
+
+CREATE POLICY "Users can view own announcements" ON announcements FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert own announcements" ON announcements FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+
